@@ -6,13 +6,20 @@ from typing import Generic, TypeVar
 StateType = TypeVar('StateType')
 
 
-class Cycle(ABC, Generic[StateType]):
-    def __init__(self, time_interval: float):
+class Cyclable(ABC, Generic[StateType]):
+    @abstractmethod
+    def execute_cycle(self, state: StateType) -> StateType:
+        raise NotImplementedError
+
+
+class CyclicExecutor(ABC):
+    def __init__(self, time_interval: float, agent: Cyclable):
         self.running = False
         self.lock = threading.Lock()
         self.time_interval = time_interval
         self.killed = False
         self.thread = None
+        self.agent = agent
 
     def start(self, start_state: StateType) -> None:
         if not self.running:
@@ -35,16 +42,12 @@ class Cycle(ABC, Generic[StateType]):
         if self.thread:
             self.thread.join()
 
-    def _main_loop(self, start_state: StateType) -> None:
+    def _main_loop(self, state: StateType) -> None:
         while True:
             if self.killed:
                 return
 
             if self.running:
-                self.evoke(start_state)
+                state = self.agent.execute_cycle(state)
                 time.sleep(self.time_interval)
-
-    @abstractmethod
-    def evoke(self, state: StateType):
-        raise NotImplementedError
 
