@@ -1,7 +1,7 @@
 # CyclicAgent
 CyclicAgent is a framework designed for creating fully autonomous, self-prompting agents that operate continuously, 24/7.
 
-# How does CyclicAgent work?
+## How does CyclicAgent work?
 CyclicAgent is built on the concept of state recycling. In this framework, an agent is invoked with an existing state, performs its designated operations, and then outputs a new state.
 
 ## How is CyclicAgent different from other frameworks?
