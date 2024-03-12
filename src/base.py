@@ -1,19 +1,24 @@
 import threading
 import time
-from abc import ABC
+from abc import ABC, abstractmethod
+from typing import Generic, TypeVar
+
+StateType = TypeVar('StateType')
 
 
-class Cycle(ABC):
-    def __init__(self, time_interval: int):
+class Cycle(ABC, Generic[StateType]):
+    def __init__(self, time_interval: float):
         self.running = False
         self.lock = threading.Lock()
         self.time_interval = time_interval
         self.killed = False
+        self.thread = None
 
-    def start(self):
+    def start(self, start_state: StateType) -> None:
         if not self.running:
             self.running = True
-            threading.Thread(target=self._main_loop_stub).start()
+            self.thread = threading.Thread(target=self._main_loop, args=(start_state,))
+            self.thread.start()
 
     def pause(self):
         with self.lock:
@@ -23,21 +28,23 @@ class Cycle(ABC):
         with self.lock:
             self.running = True
 
-    def _main_loop_stub(self):
+    def kill(self):
+        with self.lock:
+            self.killed = True
+            self.running = False
+        if self.thread:
+            self.thread.join()
+
+    def _main_loop(self, start_state: StateType) -> None:
         while True:
             if self.killed:
                 return
 
             if self.running:
-                self.evoke()
+                self.evoke(start_state)
                 time.sleep(self.time_interval)
 
-    def evoke(self):
-        ...
+    @abstractmethod
+    def evoke(self, state: StateType):
+        raise NotImplementedError
 
-
-if __name__ == "__main__":
-    cycle = Cycle(1)
-    cycle.start()
-    time.sleep(5)
-    cycle.pause()
