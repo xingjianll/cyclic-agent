@@ -9,7 +9,6 @@ from base import Cyclable, CyclicExecutor
 
 class SimpleLangChainAgent(Cyclable[list[tuple[str, str]]]):
     def __init__(self):
-        print(os.getenv('OPENAI_API_KEY'))
         llm = ChatOpenAI(openai_api_key=os.getenv('OPENAI_API_KEY'))
         output_parser = StrOutputParser()
         self.chain = llm | output_parser

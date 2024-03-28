@@ -12,7 +12,7 @@ class Cyclable(ABC, Generic[StateType]):
         raise NotImplementedError
 
 
-class CyclicExecutor(ABC):
+class CyclicExecutor:
     def __init__(self, time_interval: float, agent: Cyclable):
         self.running = False
         self.lock = threading.Lock()
