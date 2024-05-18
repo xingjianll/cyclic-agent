@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "cyclic-agent"
+version = "0.1.0"
+description = ""
+authors = ["xingjianll <4396kevinliu@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+bilibili-api-python = "^16.2.0"
+langchain = "^0.1.13"
+jupyter = "^1.0.0"
+matplotlib = "^3.8.4"
+pandas = "^2.2.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
