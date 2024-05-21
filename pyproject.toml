@@ -12,6 +12,7 @@ langchain = "^0.1.13"
 jupyter = "^1.0.0"
 matplotlib = "^3.8.4"
 pandas = "^2.2.1"
+mypy = "^1.10.0"
 
 
 [build-system]

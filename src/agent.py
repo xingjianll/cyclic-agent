@@ -1,10 +1,12 @@
 import os
+from dataclasses import dataclass
 from time import sleep
 
 from langchain_community.chat_models import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 
 from base import Cyclable, CyclicExecutor
+from src.cycle import cyc
 
 
 class SimpleLangChainAgent(Cyclable[list[tuple[str, str]]]):
@@ -20,9 +22,24 @@ class SimpleLangChainAgent(Cyclable[list[tuple[str, str]]]):
         return state
 
 
+llm = ChatOpenAI(openai_api_key=os.getenv('OPENAI_API_KEY'))
+output_parser = StrOutputParser()
+chain = llm | output_parser
+
+
+@cyc
+def ask_question(conv: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    value = chain.invoke(conv)
+    conv.append(("assistant", value))
+    return conv
+
+ask_question.bind()
+
+
 if __name__ == '__main__':
     agent = SimpleLangChainAgent()
     executor = CyclicExecutor(1, agent)
-    executor.start([("system", "If the last message is not a question, ask a question. Otherwise answer the question.")])
+    executor.start(
+        [("system", "If the last message is not a question, ask a question. Otherwise answer the question.")])
     sleep(10)
     executor.kill()
