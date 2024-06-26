@@ -5,7 +5,7 @@ from time import sleep
 from langchain_community.chat_models import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 
-from base import Cyclable, CyclicExecutor
+from executor import Cyclable, CyclicExecutor
 from src.cycle import cyc
 
 
