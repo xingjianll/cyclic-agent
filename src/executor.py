@@ -39,8 +39,8 @@ class CyclicExecutor:
                 return
 
             if self.running:
-                state = state.run()
-                time.sleep(self.time_interval)
+                state = state.evoke()
+                time.sleep(self.default_time_interval)
 
 
 class Timer:

@@ -1,13 +1,17 @@
+import asyncio
 import os
+import time
 from dataclasses import dataclass
 from typing import TypeAlias, Union
 
 import cohere
-from bilibili_api import search, sync, Credential, comment, video
+from bilibili_api import search, Credential, comment, video, dynamic
 from bilibili_api.comment import OrderType, CommentResourceType
+from bilibili_api.dynamic import BuildDynamic
 from overrides import overrides
 
 from examples.bilibili.fifo import Fifo
+from src.executor import CyclicExecutor
 from src.state import State
 from dotenv import load_dotenv
 
@@ -16,9 +20,9 @@ SESSDATA = os.getenv("SESSDATA")
 BILI_JCT = os.getenv("BILI_JCT")
 BUVID3 = os.getenv("BUVID3")
 credential = Credential(sessdata=SESSDATA,
-                                bili_jct=BILI_JCT,
-                                buvid3=BUVID3)
-initial_prompt = """You are a chinese young person who is browsing bilibili, you like anime and vtubers. """
+                        bili_jct=BILI_JCT,
+                        buvid3=BUVID3)
+initial_prompt = """You are a chinese young person who is browsing bilibili, you like anime and vtubers and acgn."""
 co = cohere.Client(os.environ.get("COHERE_API_KEY"))
 
 
@@ -34,19 +38,20 @@ class BrowsingVideo(State[BrowsingVideoInput, BrowsingVideoReachable]):
     @overrides
     def _evoke(self, state_input: BrowsingVideoInput) -> BrowsingVideoReachable:
         prompt = (f"Here is your past actions {state_input.memory.prompt()} Generate a keyword phrase for videos "
-                  f"you want to watch. Respond with a maximum of three words, in Chinese.")
+                  f"you want to watch, be creative and avoid repeating. Respond with a maximum of three words, in Chinese.")
         prompt = initial_prompt + prompt
         response = co.chat(
             temperature=1,
             message=prompt
         )
+
+        res = asyncio.run(search.search_by_type(response.text,
+                                                search_type=search.SearchObjectType.VIDEO,
+                                                order_type=search.OrderUser.FANS,
+                                                order_sort=0
+                                                ))
         state_input.memory.add(f"searched for {response.text} while browsing video")
 
-        res = sync(search.search_by_type(response.text,
-                                         search_type=search.SearchObjectType.VIDEO,
-                                         order_type=search.OrderUser.FANS,
-                                         order_sort=0
-                                         ))
         top_10 = []
         for i in range(10):
             video = res['result'][i]
@@ -83,13 +88,13 @@ ReadingCommentsReachable: TypeAlias = Union['BrowsingVideo', 'ReadingComments', 
 class ReadingComments(State[ReadingCommentsInput, ReadingCommentsReachable]):
     @overrides
     def _evoke(self, state_input: ReadingCommentsInput) -> ReadingCommentsReachable:
-        c = sync(comment.get_comments(oid=video.Video(bvid=state_input.video_bvid).get_aid(),
-                                      type_=CommentResourceType.VIDEO,
-                                      order=OrderType.LIKE,
-                                      credential=credential))
+        c = asyncio.run(comment.get_comments(oid=video.Video(bvid=state_input.video_bvid).get_aid(),
+                                             type_=CommentResourceType.VIDEO,
+                                             order=OrderType.LIKE,
+                                             credential=credential))
 
         top_10 = []
-        for i in range(5):
+        for i in range(min(5, c['page']['count'])):
             cmt = c['replies'][i]
             top_10.append(f"{i + 1} {cmt['member']['uname']}: {cmt['content']['message']}")
         top_10_str = "\n".join(top_10)
@@ -143,12 +148,15 @@ class PostComment(State[PostCommentInput, PostCommentReachable]):
                 message=prompt
             )
 
-            sync(comment.send_comment(text=response.text,
-                                      oid=video.Video(bvid=state_input.video_bvid).get_aid(),
-                                      type_=CommentResourceType.VIDEO,
-                                      credential=credential))
-
+            after_text = (f"\n I am a bot, and this action was performed automatically. Please contact 八海haha8mi if you "
+                          "have any questions or concerns.")
+            asyncio.run(comment.send_comment(text=response.text + after_text,
+                                             oid=video.Video(bvid=state_input.video_bvid).get_aid(),
+                                             type_=CommentResourceType.VIDEO,
+                                             credential=credential))
             state_input.memory.add(f"commented {response.text} to {state_input.video_title}")
+            d = BuildDynamic.empty().add_text(f"reply to https://www.bilibili.com/video/{state_input.video_bvid} \n" + response.text + after_text)
+            asyncio.run(dynamic.send_dynamic(d, credential=credential))
 
         next_state_input = BrowsingVideoInput(memory=state_input.memory)
         return BrowsingVideo(next_state_input)
@@ -157,7 +165,6 @@ class PostComment(State[PostCommentInput, PostCommentReachable]):
 if __name__ == "__main__":
     state_input = BrowsingVideoInput(memory=Fifo())
     state = BrowsingVideo(state_input)
-    new_state = state.evoke()
-    new_state_2 = new_state.evoke()
-    new_state_2.evoke()
-    print(state_input.memory.prompt())
+    executor = CyclicExecutor(5)
+    executor.start(state)
+    time.sleep(1000)
