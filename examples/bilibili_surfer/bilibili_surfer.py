@@ -10,7 +10,7 @@ from bilibili_api.comment import OrderType, CommentResourceType
 from bilibili_api.dynamic import BuildDynamic
 from overrides import overrides
 
-from examples.bilibili.fifo import Fifo
+from examples.bilibili_surfer.fifo import Fifo
 from src.executor import CyclicExecutor
 from src.state import State
 from dotenv import load_dotenv
@@ -22,7 +22,7 @@ BUVID3 = os.getenv("BUVID3")
 credential = Credential(sessdata=SESSDATA,
                         bili_jct=BILI_JCT,
                         buvid3=BUVID3)
-initial_prompt = """You are a chinese young person who is browsing bilibili, you like anime and vtubers and acgn."""
+initial_prompt = """You are a chinese young person who is browsing bilibili_surfer, you like anime and vtubers and acgn."""
 co = cohere.Client(os.environ.get("COHERE_API_KEY"))
 
 
