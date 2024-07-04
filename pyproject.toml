@@ -6,14 +6,15 @@ authors = ["xingjianll <4396kevinliu@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 bilibili-api-python = "^16.2.0"
 langchain = "^0.1.13"
 jupyter = "^1.0.0"
 matplotlib = "^3.8.4"
 pandas = "^2.2.1"
-mypy = "^1.10.0"
+mypy = {git = "https://github.com/python/mypy.git", branch = "master"}
 cohere = "^5.5.8"
+python-dotenv = "^1.0.1"
 
 
 [build-system]
