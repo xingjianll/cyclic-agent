@@ -1,21 +1,11 @@
-import inspect
+from __future__ import annotations
 from abc import abstractmethod
-from typing import Generic, TypeVar, Protocol
-
 from pydantic import BaseModel
 
-SigT = TypeVar('SigT')
 
-
-class Endomorphic(Protocol):
-    """Endomorphism"""
-    def next(self: 'Endomorphic') -> 'Endomorphic':
-        ...
-
-
-class State(Endomorphic, BaseModel, Generic[SigT]):
+class State[SigT](BaseModel):
     @abstractmethod
-    def next(self, signal: SigT | None = None) -> 'State':
+    def next(self, signal: SigT | None = None) -> State:
         """Transition to the next state."""
         raise NotImplementedError
 

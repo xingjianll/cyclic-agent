@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 
+
 class Fifo:
     def __init__(self):
         self.capacity = 100

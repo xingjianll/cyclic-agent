@@ -39,7 +39,7 @@ class CyclicExecutor:
                 return
 
             if self.running:
-                state = state.evoke()
+                state = state.next()
                 time.sleep(self.default_time_interval)
 
 
