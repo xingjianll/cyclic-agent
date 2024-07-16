@@ -7,14 +7,26 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+pydantic = "^2.8.2"
+overrides = "^7.7.0"
+
+
+[tool.poetry.group.examples]
+optional = true
+
+[tool.poetry.group.examples.dependencies]
 bilibili-api-python = "^16.2.0"
-langchain = "^0.1.13"
-jupyter = "^1.0.0"
-matplotlib = "^3.8.4"
-pandas = "^2.2.1"
-mypy = {git = "https://github.com/python/mypy.git", branch = "master"}
+langchain = "^0.2.8"
 cohere = "^5.5.8"
 python-dotenv = "^1.0.1"
+
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+mypy = {git = "https://github.com/python/mypy.git", branch = "master"}
+pytest = "^8.2.2"
 
 
 [build-system]
