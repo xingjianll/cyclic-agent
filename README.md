@@ -1,13 +1,11 @@
 <div align= "center">
-    <img src="./logo.png" >
+    <img src="./logo.png">
+    <h4>CyclicAgent is a framework designed for creating  LLM powered, fully-autonomous AI.
+</h4>
 </div>
 
 
-CyclicAgent is a framework designed for creating  LLM powered, fully-autonomous AI.
-
-
-
-
+f
 Install with pip:
 ```shell
   pip install cyclic-agent
