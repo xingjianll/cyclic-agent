@@ -1,7 +1,11 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.poetry]
 name = "cyclic-agent"
 version = "0.1.0"
-description = ""
+description = "Build LLM powered fully-autonomous agents."
 authors = ["xingjianll <4396kevinliu@gmail.com>"]
 readme = "README.md"
 
@@ -27,8 +31,3 @@ optional = true
 [tool.poetry.group.dev.dependencies]
 mypy = {git = "https://github.com/python/mypy.git", branch = "master"}
 pytest = "^8.2.2"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
