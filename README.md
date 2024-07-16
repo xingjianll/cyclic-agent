@@ -1,8 +1,52 @@
-# CyclicAgent
-CyclicAgent is a framework designed for creating fully autonomous, self-prompting agents that operate continuously, 24/7.
+<div align= "center">
+    <img src="./logo.png" >
+</div>
 
-## How does CyclicAgent work?
-CyclicAgent is built on the concept of state cycling. In this framework, an agent is invoked with an existing state, performs its designated operations, and then outputs a new state.
 
-## How is CyclicAgent different from other frameworks?
-Unlike other agent frameworks such as LangChain or AutoGPT, which are event-driven and task-oriented, CyclicAgent is time-driven. Agents in this framework are not designed to complete a specific task and then stop; instead, they are engineered to take actions at regular time intervals and to run indefinitely. 
+CyclicAgent is a framework designed for creating  LLM powered, fully-autonomous AI.
+
+
+
+
+Install with pip:
+```shell
+  pip install cyclic-agent
+```
+## How Does CyclicAgent Work?
+With Cyclic Agent, an agent is abstracted as a finite state machine (FSM) using the state design pattern. In each state, the agent infers the next state based on the internal state attributes (memory, meta prompts etc.) as well as external signals, and interact with the outside environment along the process. 
+
+All states implement a state transition function, which returns another state. This allows for chaining the transition operation indefinitely, thus making the Agent 'Cyclic'.
+
+### Simple Example
+```python
+from __future__ import annotations
+import os
+import time
+import cohere
+from cyclic_agent import State, CyclicExecutor
+
+co = cohere.Client(os.environ.get("COHERE_API_KEY"))
+
+class AskQuestion(State[None]):
+    def next(self, signal: None = None) -> AnswerQuestion:
+        response = co.chat(message="Ask a question", temperature=1)
+        print(response.text)
+        return AnswerQuestion(question=response.text)
+
+class AnswerQuestion(State[None]):
+    question: str
+
+    def next(self, signal: None = None) -> AskQuestion:
+        answer = co.chat(message=self.question)
+        print(answer)
+        return AskQuestion()
+
+if __name__ == "__main__":
+    initial_state = AskQuestion()
+    executor = CyclicExecutor(5)
+    executor.start(initial_state)
+    time.sleep(20)
+```
+> Note: `from __future__ import annotations` is needed for forward references
+
+In the above example, we create two states: `AskQuestion`, `AnswerQuestion` that each transitions to the other. The state machine prints question-answer pairs when ran.
