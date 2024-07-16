@@ -5,7 +5,6 @@
 </div>
 
 
-f
 Install with pip:
 ```shell
   pip install cyclic-agent
