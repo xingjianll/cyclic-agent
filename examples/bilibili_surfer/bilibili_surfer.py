@@ -11,9 +11,9 @@ from bilibili_api.dynamic import BuildDynamic
 from overrides import overrides
 from pydantic import BaseModel, ConfigDict
 
-from cyclic_agent.state import State
+from cyclic_agent import State
 from examples.bilibili_surfer.fifo import Fifo
-from cyclic_agent.executor import CyclicExecutor
+from cyclic_agent import CyclicExecutor
 from dotenv import load_dotenv
 
 load_dotenv()

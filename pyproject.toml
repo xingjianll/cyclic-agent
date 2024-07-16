@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "cyclic-agent"
 version = "0.1.0"
-description = "Build LLM powered fully-autonomous agents."
+description = "Build LLM powered, fully autonomous agents."
 authors = ["xingjianll <4396kevinliu@gmail.com>"]
 readme = "README.md"
 
