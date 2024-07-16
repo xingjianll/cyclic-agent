@@ -1,7 +1,7 @@
 import threading
 import time
 
-from src.state import State
+from cyclic_agent.state import State
 
 
 class CyclicExecutor:

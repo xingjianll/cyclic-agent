@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class State[SigT](BaseModel):
     @abstractmethod
-    def next(self, signal: SigT | None = None) -> State:
+    def next(self, signal: SigT | None = None) -> State[SigT]:
         """Transition to the next state."""
         raise NotImplementedError
 
