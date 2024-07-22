@@ -1,16 +1,22 @@
 from __future__ import annotations
 import os
 import time
+
 import cohere
+from dotenv import load_dotenv
+
 from cyclic_agent import State, CyclicExecutor
 
+load_dotenv()
 co = cohere.Client(os.environ.get("COHERE_API_KEY"))
+
 
 class AskQuestion(State[None]):
     def next(self, signal: None = None) -> AnswerQuestion:
         response = co.chat(message="Ask a question", temperature=1)
         print(response.text)
         return AnswerQuestion(question=response.text)
+
 
 class AnswerQuestion(State[None]):
     question: str
@@ -19,6 +25,7 @@ class AnswerQuestion(State[None]):
         answer = co.chat(message=self.question)
         print(answer)
         return AskQuestion()
+
 
 if __name__ == "__main__":
     initial_state = AskQuestion()
