@@ -3,13 +3,15 @@ import asyncio
 import os
 import time
 from abc import ABC
+from typing import Union
+from inspect import cleandoc as I
 
-import cohere
 from bilibili_api import search, Credential, comment, video, dynamic
 from bilibili_api.comment import OrderType, CommentResourceType
 from bilibili_api.dynamic import BuildDynamic
+from cohere import Client
 from overrides import overrides
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
 
 from cyclic_agent import State
 from examples.bilibili_surfer.fifo import Fifo
@@ -20,44 +22,54 @@ load_dotenv()
 SESSDATA = os.getenv("SESSDATA")
 BILI_JCT = os.getenv("BILI_JCT")
 BUVID3 = os.getenv("BUVID3")
-credential = Credential(sessdata=SESSDATA,
-                        bili_jct=BILI_JCT,
-                        buvid3=BUVID3)
-initial_prompt = """You are a chinese young person who is browsing bilibili_surfer, you like anime and vtubers and 
-acgn."""
-co = cohere.Client(os.environ.get("COHERE_API_KEY"))
 
 
-class BilibiliStateMixin(BaseModel):
+class BilibiliStateBase(State[None], ABC):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    initial_prompt: str
     memory: Fifo
+    co: Client
+    credential: Credential
+
+    def _infer_state_helper(self, *args: str) -> str:
+        prompt = I(
+            f"""
+            {self.initial_prompt}
+            Here are your past actions {self.memory.prompt()}.
+            Here are the next states you can go to: {", ".join(args)}
+            Give the state that you want to go to. 
+            1. Give one word and nothing else.
+            2. Be creative and try different routes.
+            """
+        )
+        print(prompt)
+        text = self.co.chat(temperature=1, message=prompt).text
+        print(text)
+        return text
 
 
-class BilibiliStateBase(State[None], BilibiliStateMixin, ABC):
-    ...
-
-
-type BrowsingVideoReachable = BrowsingVideo | ReadingComments
+type BrowsingVideoReachable = Union[BrowsingVideo, ReadingComments]
 
 
 class BrowsingVideo(BilibiliStateBase):
     @overrides
     def next(self, signal: None = None) -> BrowsingVideoReachable:
-        prompt = (f"Here is your past actions {self.memory.prompt()} Generate a keyword phrase for videos "
-                  f"you want to watch, be creative and avoid repeating. Respond with a maximum of three words, "
-                  f"in Chinese.")
-        prompt = initial_prompt + prompt
-        response = co.chat(
-            temperature=1,
-            message=prompt
+        print('BrowsingVideo')
+        prompt = I(
+            f"""
+            {self.initial_prompt}
+            Here are your past actions {self.memory.prompt()} Generate a keyword phrase for videos you want to watch.
+            Be creative and avoid repeating. Respond with a maximum of three words in Chinese.
+            """
         )
-
-        res = asyncio.run(search.search_by_type(response.text,
+        response = self.co.chat(temperature=1, message=prompt).text
+        res = asyncio.run(search.search_by_type(response,
                                                 search_type=search.SearchObjectType.VIDEO,
                                                 order_type=search.OrderUser.FANS,
                                                 order_sort=0
-                                                ))
-        self.memory.add(f"searched for {response.text} while browsing video")
+                                                )
+                          )
+        self.memory.add(f"searched for {response} while browsing video")
 
         top_10 = []
         for i in range(10):
@@ -65,22 +77,29 @@ class BrowsingVideo(BilibiliStateBase):
             top_10.append(f"{i + 1} {video['title']}, {video['play']} plays")
         top_10_str = "\n".join(top_10)
 
-        prompt = initial_prompt + f"""Here are 10 videos: {top_10_str}, return the number that represents the video 
-        you want to see the most. Give a number and nothing else."""
-        response = co.chat(
-            temperature=1,
-            message=prompt
+        prompt = I(
+            f"""
+            {self.initial_prompt}
+            Here are your past actions {self.memory.prompt()}
+            Here are 10 videos: {top_10_str}, return the number that represents the video 
+            you want to see the most. Give a number and nothing else.
+            """
         )
-        video = res['result'][int(response.text)]
-        self.memory.add(f"finds {video['title']} interesting while browsing videos")
+        response = self.co.chat(temperature=1, message=prompt).text
+        video = res['result'][int(response)]
+        self.memory.add(f"finds {video['title']} while browsing videos")
 
-        return ReadingComments(**self.model_dump(),
-                               video_bvid=video['bvid'],
-                               video_title=video['title'],
-                               video_description=video['description'])
+        match self._infer_state_helper('BrowsingVideo', 'ReadingComments'):
+            case 'BrowsingVideo':
+                return self
+            case 'ReadingComments':
+                return ReadingComments(**self.model_dump(),
+                                       video_bvid=video['bvid'],
+                                       video_title=video['title'],
+                                       video_description=video['description'])
 
 
-type ReadingCommentsReachable = BrowsingVideo | ReadingComments | PostComment
+type ReadingCommentsReachable = Union[BrowsingVideo, ReadingComments, PostComment]
 
 
 class ReadingComments(BilibiliStateBase):
@@ -90,39 +109,39 @@ class ReadingComments(BilibiliStateBase):
 
     @overrides
     def next(self, signal: None = None) -> ReadingCommentsReachable:
+        print('ReadingComments')
         c = asyncio.run(comment.get_comments(oid=video.Video(bvid=self.video_bvid).get_aid(),
                                              type_=CommentResourceType.VIDEO,
                                              order=OrderType.LIKE,
-                                             credential=credential))
-
+                                             credential=self.credential))
         top_10 = []
         for i in range(min(5, c['page']['count'])):
             cmt = c['replies'][i]
             top_10.append(f"{i + 1} {cmt['member']['uname']}: {cmt['content']['message']}")
         top_10_str = "\n".join(top_10)
 
-        prompt = f"""Here is the context. You are browsing a video called {self.video_title}, the description is 
-        {self.video_description}. Here are 10 comments: {top_10_str}, return the number that represents the 
-        comment you want to reply the most. Give a number and nothing else."""
-        prompt = initial_prompt + prompt
-        response = co.chat(
-            temperature=1,
-            message=prompt
+        prompt = I(
+            f"""
+            {self.initial_prompt}
+            You are browsing a video called {self.video_title}, the description is {self.video_description}. 
+            Here are 10 comments: {top_10_str}, return the number that represents the comment you want to reply most. 
+            Give a number and nothing else.
+            """
         )
+        response = self.co.chat(temperature=1, message=prompt).text
+        cmt = c['replies'][int(response)]
+        self.memory.add(f"finds comment: {cmt['content']['message']} while browsing {self.video_title}")
 
-        cmt = c['replies'][int(response.text)]
-        self.memory.add(
-            f"finds comment: {cmt['content']['message']} interesting while browsing {self.video_title}")
-
-        return PostComment(**self.model_dump(),
-                           video_bvid=self.video_bvid,
-                           video_title=self.video_title,
-                           video_description=self.video_description,
-                           reply_to=cmt['content']['message'],
-                           reply_to_oid=cmt['oid'])
+        match self._infer_state_helper('BrowsingVideo', 'ReadingComments', 'PostComment'):
+            case 'BrowsingVideo':
+                return BrowsingVideo(**self.model_dump(exclude={'video_bvid', 'video_title', 'video_description'}))
+            case 'ReadingComments':
+                return self
+            case 'PostComment':
+                return PostComment(**self.model_dump(), reply_to=cmt['content']['message'], reply_to_oid=cmt['oid'])
 
 
-PostCommentReachable = ReadingComments | BrowsingVideo
+type PostCommentReachable = Union[BrowsingVideo]
 
 
 class PostComment(BilibiliStateBase):
@@ -134,34 +153,48 @@ class PostComment(BilibiliStateBase):
 
     @overrides
     def next(self, signal: None = None) -> PostCommentReachable:
+        print('PostComment')
         if self.reply_to:
-            # reply to comment
-            prompt = f"""Here is the context. You are browsing a video called {self.video_title}, the description 
-            is {self.video_description}.  You are replying to a comment: {self.reply_to}. Return your 
-            response to this comment only, in Chinese."""
-            prompt = initial_prompt + prompt
-            response = co.chat(
-                temperature=1,
-                message=prompt
+            prompt = I(
+                f"""
+                {self.initial_prompt}
+                You are browsing a video called {self.video_title}, the description is {self.video_description}.
+                You are replying to a comment: {self.reply_to}. Return your response to this comment in Chinese.
+                """
             )
-
-            after_text = (
-                f"\n I am a bot, and this action was performed automatically. Please contact {os.getenv("name")} if you "
-                "have any questions or concerns.")
-            asyncio.run(comment.send_comment(text=response.text + after_text,
+            response = self.co.chat(temperature=1, message=prompt).text
+            footnote = (
+                f"\n I am a bot, and this action was performed automatically. Please contact {os.getenv("name")}"
+                f" if you have any questions or concerns."
+            )
+            asyncio.run(comment.send_comment(text=f"{response} {footnote}",
                                              oid=video.Video(bvid=self.video_bvid).get_aid(),
                                              type_=CommentResourceType.VIDEO,
-                                             credential=credential))
-            self.memory.add(f"commented {response.text} to {self.video_title}")
+                                             credential=self.credential))
+            self.memory.add(f"commented {response} to {self.video_title}")
             d = BuildDynamic.empty().add_text(
-                f"reply to https://www.bilibili.com/video/{self.video_bvid} \n" + response.text + after_text)
-            asyncio.run(dynamic.send_dynamic(d, credential=credential))
+                f"reply to https://www.bilibili.com/video/{self.video_bvid} \n" + f"{response} {footnote}"
+            )
+            asyncio.run(dynamic.send_dynamic(d, credential=self.credential))
 
-        return BrowsingVideo(memory=self.memory)
+        return BrowsingVideo(memory=self.memory,
+                             initial_prompt=self.initial_prompt,
+                             co=self.co,
+                             credential=self.credential
+                             )
 
 
 if __name__ == "__main__":
-    initial_state = BrowsingVideo(memory=Fifo())
+    initial_prompt = "You are a dude browsing Bilibili, A Chinese video sharing platform."
+
+    initial_state = BrowsingVideo(memory=Fifo(),
+                                  initial_prompt=initial_prompt,
+                                  co=Client(os.environ.get("COHERE_API_KEY")),
+                                  credential=Credential(sessdata=SESSDATA,
+                                                        bili_jct=BILI_JCT,
+                                                        buvid3=BUVID3
+                                                        )
+                                  )
     executor = CyclicExecutor(5)
     executor.start(initial_state)
     time.sleep(1000)
