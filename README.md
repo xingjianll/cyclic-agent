@@ -53,4 +53,4 @@ if __name__ == "__main__":
 ```
 > Note: `from __future__ import annotations` is needed for forward references
 
-In the above example, we create two states: `AskQuestion`, `AnswerQuestion` that each transitions to the other. The state machine prints question-answer pairs when ran.
+In the above example, we create two states: `AskQuestion`, `AnswerQuestion` that each transitions to the other. The state machine prints question-answer pairs when run.
